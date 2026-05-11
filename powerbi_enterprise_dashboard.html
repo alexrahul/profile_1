@@ -1,0 +1,852 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DataPulse Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+<style>
+  :root {
+    --bg: #0f1117; --bg2: #1a1d27; --bg3: #21253a; --bg4: #2a2f47;
+    --accent: #4f6ef7; --accent2: #7c3aed; --accent3: #06b6d4;
+    --accent4: #10b981; --accent5: #f59e0b;
+    --text: #e2e8f0; --text2: #94a3b8; --text3: #64748b;
+    --border: rgba(255,255,255,0.08); --card-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --radius: 12px; --sidebar-w: 220px;
+    --danger: #ef4444; --success: #10b981; --warn: #f59e0b;
+  }
+  .light {
+    --bg: #f0f2f8; --bg2: #ffffff; --bg3: #e8ecf4; --bg4: #dde3f0;
+    --text: #1e2a4a; --text2: #4a5568; --text3: #718096;
+    --border: rgba(0,0,0,0.08); --card-shadow: 0 4px 24px rgba(79,110,247,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); transition: background .3s, color .3s; overflow-x: hidden; }
+  #app { display: flex; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar { width: var(--sidebar-w); background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; transition: transform .3s; }
+  .sidebar-logo { padding: 20px 18px 16px; border-bottom: 1px solid var(--border); }
+  .logo-mark { display: flex; align-items: center; gap: 10px; }
+  .logo-icon { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 9px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 17px; }
+  .logo-text { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+  .logo-sub { font-size: 10px; color: var(--text3); letter-spacing: 1.5px; text-transform: uppercase; }
+  .nav { padding: 12px 10px; flex: 1; overflow-y: auto; }
+  .nav-section { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text3); padding: 14px 8px 6px; font-weight: 600; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 9px; cursor: pointer; font-size: 13.5px; color: var(--text2); transition: all .2s; margin-bottom: 2px; }
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item.active { background: linear-gradient(135deg, rgba(79,110,247,0.2), rgba(124,58,237,0.15)); color: var(--accent); font-weight: 600; }
+  .nav-item i { font-size: 17px; }
+  .nav-badge { margin-left: auto; background: var(--accent); color: #fff; font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
+  .sidebar-footer { padding: 14px 10px; border-top: 1px solid var(--border); }
+  .sidebar-footer .nav-item { margin-bottom: 0; }
+
+  /* MAIN */
+  .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; }
+
+  /* TOPBAR */
+  .topbar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 24px; height: 60px; display: flex; align-items: center; gap: 14px; position: sticky; top: 0; z-index: 50; }
+  .topbar-title { font-size: 16px; font-weight: 700; flex: 1; }
+  .topbar-sub { font-size: 12px; color: var(--text3); margin-top: 1px; }
+  .topbar-actions { display: flex; align-items: center; gap: 10px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; border: none; transition: all .2s; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #3d5de0; }
+  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--bg3); color: var(--text); }
+  .btn-sm { padding: 5px 10px; font-size: 11.5px; }
+  .theme-toggle { width: 36px; height: 36px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 17px; color: var(--text2); transition: all .2s; }
+  .theme-toggle:hover { background: var(--bg4); color: var(--accent); }
+  .topbar-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+
+  /* CONTENT */
+  .content { padding: 20px 24px; flex: 1; }
+  .page { display: none; } .page.active { display: block; }
+
+  /* FILTER BAR */
+  .filter-bar { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .filter-bar label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 4px; font-weight: 600; }
+  .filter-bar select { background: var(--bg3); border: 1px solid var(--border); border-radius: 7px; color: var(--text); padding: 6px 10px; font-size: 12.5px; cursor: pointer; min-width: 120px; outline: none; }
+  .filter-bar select:focus { border-color: var(--accent); }
+  .filter-group { display: flex; flex-direction: column; }
+  .filter-actions { margin-left: auto; display: flex; gap: 8px; align-items: flex-end; }
+
+  /* KPI CARDS */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .kpi-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; position: relative; overflow: hidden; transition: transform .2s, box-shadow .2s; cursor: pointer; }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--card-shadow); }
+  .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .kpi-card.blue::before { background: linear-gradient(90deg, #4f6ef7, #7c3aed); }
+  .kpi-card.teal::before { background: linear-gradient(90deg, #06b6d4, #0891b2); }
+  .kpi-card.amber::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
+  .kpi-card.green::before { background: linear-gradient(90deg, #10b981, #059669); }
+  .kpi-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 14px; }
+  .kpi-card.blue .kpi-icon { background: rgba(79,110,247,.18); color: #4f6ef7; }
+  .kpi-card.teal .kpi-icon { background: rgba(6,182,212,.18); color: #06b6d4; }
+  .kpi-card.amber .kpi-icon { background: rgba(245,158,11,.18); color: #f59e0b; }
+  .kpi-card.green .kpi-icon { background: rgba(16,185,129,.18); color: #10b981; }
+  .kpi-label { font-size: 11.5px; color: var(--text3); text-transform: uppercase; letter-spacing: .8px; font-weight: 600; margin-bottom: 6px; }
+  .kpi-value { font-size: 26px; font-weight: 700; letter-spacing: -1px; }
+  .kpi-delta { font-size: 12px; color: var(--text3); margin-top: 4px; }
+  .kpi-delta .up { color: var(--success); } .kpi-delta .down { color: var(--danger); }
+
+  /* CHART CARDS */
+  .charts-grid { display: grid; gap: 16px; }
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .charts-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+  .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; transition: box-shadow .2s; }
+  .chart-card:hover { box-shadow: var(--card-shadow); }
+  .chart-card.full { grid-column: 1 / -1; }
+  .chart-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+  .chart-title { font-size: 14px; font-weight: 700; }
+  .chart-sub { font-size: 11.5px; color: var(--text3); margin-top: 3px; }
+  .chart-actions { display: flex; gap: 6px; }
+  .chart-tag { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 6px; }
+  .tag-blue { background: rgba(79,110,247,.18); color: #818cf8; }
+  .tag-green { background: rgba(16,185,129,.18); color: #34d399; }
+  .tag-amber { background: rgba(245,158,11,.18); color: #fbbf24; }
+  .chart-wrap { position: relative; }
+
+  /* TABLE */
+  .data-table-wrap { overflow-x: auto; margin-top: 4px; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .data-table th { background: var(--bg3); color: var(--text3); font-size: 10.5px; text-transform: uppercase; letter-spacing: .8px; font-weight: 700; padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  .data-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+  .data-table tr:hover td { background: var(--bg3); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 600; }
+  .badge-blue { background: rgba(79,110,247,.2); color: #818cf8; }
+  .badge-green { background: rgba(16,185,129,.2); color: #34d399; }
+  .badge-amber { background: rgba(245,158,11,.2); color: #fbbf24; }
+  .badge-red { background: rgba(239,68,68,.2); color: #f87171; }
+
+  /* UPLOAD */
+  .upload-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 36px 24px; text-align: center; cursor: pointer; transition: all .2s; margin-bottom: 20px; }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(79,110,247,.06); }
+  .upload-icon { font-size: 42px; color: var(--text3); margin-bottom: 12px; }
+  .upload-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .upload-sub { font-size: 12.5px; color: var(--text3); }
+  .upload-sub span { color: var(--accent); font-weight: 600; cursor: pointer; }
+  #fileInput { display: none; }
+
+  /* LEGEND */
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; font-size: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 10px; padding: 12px 18px; font-size: 13px; z-index: 999; box-shadow: 0 8px 32px rgba(0,0,0,.3); opacity: 0; transform: translateY(10px); transition: all .3s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* PAGE HEADER */
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .page-title { font-size: 21px; font-weight: 800; letter-spacing: -0.5px; }
+  .page-breadcrumb { font-size: 12px; color: var(--text3); margin-top: 3px; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+
+  /* MOBILE */
+  @media (max-width: 900px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); }
+    .main { margin-left: 0; }
+    .charts-row { grid-template-columns: 1fr; }
+    .charts-row.triple { grid-template-columns: 1fr; }
+  }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+  .kpi-card { animation: fadeUp .4s both; }
+  .kpi-card:nth-child(1) { animation-delay: .05s; }
+  .kpi-card:nth-child(2) { animation-delay: .1s; }
+  .kpi-card:nth-child(3) { animation-delay: .15s; }
+  .kpi-card:nth-child(4) { animation-delay: .2s; }
+  .chart-card { animation: fadeUp .45s both; animation-delay: .25s; }
+</style>
+</head>
+<body>
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">DataPulse Enterprise Dashboard – project revenue and funnel analytics with interactive filters and charts</h2>
+
+<div id="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <div class="logo-icon"><i class="ti ti-chart-dots-3"></i></div>
+        <div>
+          <div class="logo-text">Sales Pipeline</div>
+          <div class="logo-sub">Profile Solution</div>
+        </div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Analytics</div>
+      <div class="nav-item active" onclick="showPage('overview')">
+        <i class="ti ti-layout-dashboard"></i> Overview <span class="nav-badge">Live</span>
+      </div>
+      <div class="nav-item" onclick="showPage('projects')">
+        <i class="ti ti-building-skyscraper"></i> Projects
+      </div>
+      <div class="nav-item" onclick="showPage('upload')">
+        <i class="ti ti-cloud-upload"></i> Upload Data
+      </div>
+      <div class="nav-section">Reports</div>
+      <div class="nav-item" onclick="exportPDF()">
+        <i class="ti ti-file-type-pdf"></i> Export PDF
+      </div>
+      <div class="nav-item" onclick="downloadCSV()">
+        <i class="ti ti-download"></i> Download CSV
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="nav-item" id="themeBtn" onclick="toggleTheme()">
+        <i class="ti ti-sun" id="themeIcon"></i> Toggle Theme
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <button class="theme-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')" style="display:none" id="menuBtn">
+        <i class="ti ti-menu-2"></i>
+      </button>
+      <div>
+        <div class="topbar-title">Project Revenue Dashboard</div>
+        <div class="topbar-sub">Real-time analytics &bull; Auto-refresh</div>
+      </div>
+      <div class="topbar-actions">
+        <div class="topbar-dot" title="Live"></div>
+        <button class="btn btn-ghost btn-sm" onclick="downloadCSV()"><i class="ti ti-download"></i> CSV</button>
+        <button class="btn btn-primary btn-sm" onclick="exportPDF()"><i class="ti ti-file-export"></i> Export</button>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+          <i class="ti ti-sun" id="themeIcon2"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="content" id="mainContent">
+
+      <!-- OVERVIEW PAGE -->
+      <div class="page active" id="page-overview">
+
+        <!-- FILTERS -->
+        <div class="filter-bar" id="filterBar">
+          <div class="filter-group">
+            <label>Quarter</label>
+            <select id="f-quarter" onchange="applyFilters()">
+              <option value="">All Quarters</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Location</label>
+            <select id="f-location" onchange="applyFilters()">
+              <option value="">All Locations</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Scope</label>
+            <select id="f-scope" onchange="applyFilters()">
+              <option value="">All Scope</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Associated</label>
+            <select id="f-associated" onchange="applyFilters()">
+              <option value="">All</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Customer</label>
+            <select id="f-customer" onchange="applyFilters()">
+              <option value="">All Customers</option>
+            </select>
+          </div>
+          <div class="filter-actions">
+            <button class="btn btn-ghost btn-sm" onclick="resetFilters()"><i class="ti ti-refresh"></i> Reset</button>
+          </div>
+        </div>
+
+        <!-- KPI CARDS -->
+        <div class="kpi-grid" id="kpiGrid"></div>
+
+        <!-- ROW 1: Bar + Column -->
+        <div class="charts-row" id="row1">
+          <div class="chart-card">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">Project-wise Revenue</div>
+                <div class="chart-sub">Amount vs Funnel vs Pending</div>
+              </div>
+              <span class="chart-tag tag-blue">Stacked Bar</span>
+            </div>
+            <div class="legend">
+              <div class="legend-item"><div class="legend-dot" style="background:#4f6ef7"></div><span>Amount</span></div>
+              <div class="legend-item"><div class="legend-dot" style="background:#7c3aed"></div><span>Funnel</span></div>
+              <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div><span>Pending</span></div>
+            </div>
+            <div class="chart-wrap" style="height:260px"><canvas id="chartBar" role="img" aria-label="Stacked bar chart of project-wise revenue, funnel and pending amounts"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">Location-wise Revenue</div>
+                <div class="chart-sub">Amount by city/region</div>
+              </div>
+              <span class="chart-tag tag-green">Column</span>
+            </div>
+            <div class="chart-wrap" style="height:290px"><canvas id="chartLocation" role="img" aria-label="Column chart of location-wise revenue amounts"></canvas></div>
+          </div>
+        </div>
+
+        <!-- ROW 2: Quarter + Pie -->
+        <div class="charts-row" id="row2">
+          <div class="chart-card">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">Quarter-wise Performance</div>
+                <div class="chart-sub">Revenue trend per quarter</div>
+              </div>
+              <span class="chart-tag tag-amber">Line</span>
+            </div>
+            <div class="chart-wrap" style="height:250px"><canvas id="chartQuarter" role="img" aria-label="Line chart showing quarter-wise revenue performance"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">Scope Distribution</div>
+                <div class="chart-sub">Revenue share by scope type</div>
+              </div>
+              <span class="chart-tag tag-blue">Pie</span>
+            </div>
+            <div class="chart-wrap" style="height:250px"><canvas id="chartScope" role="img" aria-label="Pie chart of scope-wise revenue distribution"></canvas></div>
+          </div>
+        </div>
+
+        <!-- ROW 3: Customer -->
+        <div class="chart-card" style="margin-bottom:16px">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Customer-wise Revenue</div>
+              <div class="chart-sub">Total amount and funnel by customer</div>
+            </div>
+            <span class="chart-tag tag-green">Horizontal Bar</span>
+          </div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#06b6d4"></div><span>Amount</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div><span>Funnel</span></div>
+          </div>
+          <div class="chart-wrap" id="customerChartWrap" style="height:220px"><canvas id="chartCustomer" role="img" aria-label="Horizontal bar chart of customer-wise revenue"></canvas></div>
+        </div>
+
+      </div>
+
+      <!-- PROJECTS PAGE -->
+      <div class="page" id="page-projects">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Projects Table</div>
+            <div class="page-breadcrumb">Detailed view &bull; All records</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="downloadCSV()"><i class="ti ti-download"></i> Export CSV</button>
+        </div>
+        <div class="chart-card">
+          <div class="data-table-wrap">
+            <table class="data-table" id="projectTable">
+              <thead>
+                <tr>
+                  <th>#</th><th>Project</th><th>Location</th><th>Quarter</th>
+                  <th>%</th><th>Scope</th><th>Associated</th>
+                  <th>Amount (Cr.)</th><th>Funnel</th><th>Customer</th><th>Pending</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- UPLOAD PAGE -->
+      <div class="page" id="page-upload">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Upload Data</div>
+            <div class="page-breadcrumb">Import Excel or CSV to auto-refresh all charts</div>
+          </div>
+        </div>
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+          <div class="upload-icon"><i class="ti ti-cloud-upload"></i></div>
+          <div class="upload-title">Drop your file here or <span>browse</span></div>
+          <div class="upload-sub" style="margin-top:6px">Supports <b>.xlsx</b>, <b>.xls</b>, <b>.csv</b> files</div>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="handleFileUpload(event)"/>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><div class="chart-title">Upload Log</div></div>
+          <div id="uploadLog" style="font-size:13px; color:var(--text3); padding:8px 0;">No uploads yet. Use the zone above to import data.</div>
+        </div>
+        <div class="chart-card" style="margin-top:16px">
+          <div class="chart-header"><div><div class="chart-title">Expected Column Format</div><div class="chart-sub">Your spreadsheet should contain these columns</div></div></div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Column</th><th>Type</th><th>Example</th><th>Required</th></tr></thead>
+              <tbody>
+                <tr><td>Sr. No.</td><td>Number</td><td>1, 2, 3</td><td><span class="badge badge-green">Yes</span></td></tr>
+                <tr><td>Project</td><td>Text</td><td>NXTRA, STT</td><td><span class="badge badge-green">Yes</span></td></tr>
+                <tr><td>Location</td><td>Text</td><td>CHENNAI, DELHI</td><td><span class="badge badge-green">Yes</span></td></tr>
+                <tr><td>Quarter</td><td>Text</td><td>Q1, Q2, Q3, Q4</td><td><span class="badge badge-green">Yes</span></td></tr>
+                <tr><td>Percentage</td><td>Text/Number</td><td>50%, 100%</td><td><span class="badge badge-amber">Optional</span></td></tr>
+                <tr><td>Scope</td><td>Text</td><td>Cage, CAC, MSE</td><td><span class="badge badge-green">Yes</span></td></tr>
+                <tr><td>Associated</td><td>Text</td><td>Vivek, Raj</td><td><span class="badge badge-amber">Optional</span></td></tr>
+                <tr><td>Amount (Cr.)</td><td>Number</td><td>0.122, 1.5</td><td><span class="badge badge-green">Yes</span></td></tr>
+                <tr><td>Funnel</td><td>Number</td><td>0.061, 1.2</td><td><span class="badge badge-green">Yes</span></td></tr>
+                <tr><td>Customer</td><td>Text</td><td>NXTRA, STT</td><td><span class="badge badge-green">Yes</span></td></tr>
+                <tr><td>Amount Pending</td><td>Number</td><td>0.06, 0</td><td><span class="badge badge-green">Yes</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// SAMPLE DATA
+// ─────────────────────────────────────────────
+const SAMPLE_DATA = [
+  {sr:1,project:'NXTRA',location:'CHENNAI',quarter:'Q1',pct:'50%',scope:'Cage',associated:'Vivek',amount:0.122,amountSeg:0.122,funnel:0.061,remarks:'',customer:'NXTRA',pending:0.061},
+  {sr:2,project:'STT',location:'GUJARAT',quarter:'Q1',pct:'100%',scope:'CAC',associated:'Vivek',amount:0.010,amountSeg:0.010,funnel:0.010,remarks:'',customer:'STT',pending:0},
+  {sr:3,project:'RELIANCE',location:'MUMBAI',quarter:'Q2',pct:'75%',scope:'MSE',associated:'Raj',amount:0.850,amountSeg:0.850,funnel:0.638,remarks:'Priority',customer:'RELIANCE',pending:0.212},
+  {sr:4,project:'AIRTEL',location:'DELHI',quarter:'Q2',pct:'60%',scope:'Cage',associated:'Priya',amount:0.540,amountSeg:0.540,funnel:0.324,remarks:'',customer:'AIRTEL',pending:0.216},
+  {sr:5,project:'TATA',location:'PUNE',quarter:'Q3',pct:'90%',scope:'CAC',associated:'Amit',amount:1.200,amountSeg:1.200,funnel:1.080,remarks:'Key account',customer:'TATA',pending:0.120},
+  {sr:6,project:'INFOSYS',location:'BANGALORE',quarter:'Q1',pct:'40%',scope:'MSE',associated:'Vivek',amount:0.320,amountSeg:0.320,funnel:0.128,remarks:'',customer:'INFOSYS',pending:0.192},
+  {sr:7,project:'WIPRO',location:'HYDERABAD',quarter:'Q3',pct:'85%',scope:'Cage',associated:'Raj',amount:0.760,amountSeg:0.760,funnel:0.646,remarks:'Renew',customer:'WIPRO',pending:0.114},
+  {sr:8,project:'NXTRA',location:'DELHI',quarter:'Q2',pct:'55%',scope:'CAC',associated:'Priya',amount:0.430,amountSeg:0.430,funnel:0.237,remarks:'',customer:'NXTRA',pending:0.193},
+  {sr:9,project:'STT',location:'CHENNAI',quarter:'Q4',pct:'70%',scope:'MSE',associated:'Amit',amount:0.680,amountSeg:0.680,funnel:0.476,remarks:'',customer:'STT',pending:0.204},
+  {sr:10,project:'VODAFONE',location:'MUMBAI',quarter:'Q4',pct:'95%',scope:'Cage',associated:'Vivek',amount:1.500,amountSeg:1.500,funnel:1.425,remarks:'Top priority',customer:'VODAFONE',pending:0.075},
+  {sr:11,project:'JIOFIBER',location:'PUNE',quarter:'Q1',pct:'30%',scope:'CAC',associated:'Raj',amount:0.280,amountSeg:0.280,funnel:0.084,remarks:'',customer:'JIOFIBER',pending:0.196},
+  {sr:12,project:'BSNL',location:'KOLKATA',quarter:'Q3',pct:'65%',scope:'MSE',associated:'Priya',amount:0.190,amountSeg:0.190,funnel:0.124,remarks:'',customer:'BSNL',pending:0.066},
+  {sr:13,project:'AIRTEL',location:'BANGALORE',quarter:'Q4',pct:'80%',scope:'Cage',associated:'Amit',amount:0.920,amountSeg:0.920,funnel:0.736,remarks:'Upsell',customer:'AIRTEL',pending:0.184},
+  {sr:14,project:'RELIANCE',location:'GUJARAT',quarter:'Q3',pct:'100%',scope:'CAC',associated:'Vivek',amount:2.100,amountSeg:2.100,funnel:2.100,remarks:'Closed',customer:'RELIANCE',pending:0},
+  {sr:15,project:'TATA',location:'DELHI',quarter:'Q2',pct:'45%',scope:'MSE',associated:'Raj',amount:0.670,amountSeg:0.670,funnel:0.302,remarks:'',customer:'TATA',pending:0.368},
+];
+
+let allData = [...SAMPLE_DATA];
+let filteredData = [...allData];
+let charts = {};
+let isDark = true;
+
+// ─────────────────────────────────────────────
+// THEME
+// ─────────────────────────────────────────────
+function toggleTheme() {
+  isDark = !isDark;
+  document.body.classList.toggle('light', !isDark);
+  const icon = isDark ? 'ti-sun' : 'ti-moon';
+  document.getElementById('themeIcon').className = 'ti ' + icon;
+  document.getElementById('themeIcon2').className = 'ti ' + icon;
+  renderAllCharts();
+}
+
+// ─────────────────────────────────────────────
+// NAVIGATION
+// ─────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event && event.currentTarget && event.currentTarget.classList.add('active');
+  if (name === 'projects') renderTable();
+}
+
+// ─────────────────────────────────────────────
+// FILTERS
+// ─────────────────────────────────────────────
+function populateFilters() {
+  const unique = (key) => [...new Set(allData.map(d => d[key]).filter(Boolean))].sort();
+  const fill = (id, vals) => {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All</option>' + vals.map(v => `<option value="${v}">${v}</option>`).join('');
+    if (cur && vals.includes(cur)) sel.value = cur;
+  };
+  fill('f-quarter', unique('quarter'));
+  fill('f-location', unique('location'));
+  fill('f-scope', unique('scope'));
+  fill('f-associated', unique('associated'));
+  fill('f-customer', unique('customer'));
+}
+
+function applyFilters() {
+  const q = document.getElementById('f-quarter').value;
+  const l = document.getElementById('f-location').value;
+  const s = document.getElementById('f-scope').value;
+  const a = document.getElementById('f-associated').value;
+  const c = document.getElementById('f-customer').value;
+  filteredData = allData.filter(d =>
+    (!q || d.quarter === q) && (!l || d.location === l) &&
+    (!s || d.scope === s) && (!a || d.associated === a) && (!c || d.customer === c)
+  );
+  renderAll();
+}
+
+function resetFilters() {
+  ['f-quarter','f-location','f-scope','f-associated','f-customer'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  filteredData = [...allData];
+  renderAll();
+}
+
+// ─────────────────────────────────────────────
+// KPI
+// ─────────────────────────────────────────────
+function renderKPIs() {
+  const total = filteredData.reduce((s,d)=>s+d.amount,0);
+  const funnel = filteredData.reduce((s,d)=>s+d.funnel,0);
+  const pending = filteredData.reduce((s,d)=>s+d.pending,0);
+  const projects = new Set(filteredData.map(d=>d.project)).size;
+  const kpis = [
+    {label:'Total Amount',value:'₹'+total.toFixed(3)+' Cr',icon:'ti-currency-rupee',color:'blue',delta:'↑ From all projects'},
+    {label:'Total Funnel',value:'₹'+funnel.toFixed(3)+' Cr',icon:'ti-chart-funnel',color:'teal',delta:'Pipeline value'},
+    {label:'Amount Pending',value:'₹'+pending.toFixed(3)+' Cr',icon:'ti-clock-hour-4',color:'amber',delta:'Awaiting closure'},
+    {label:'Active Projects',value:projects,icon:'ti-building-skyscraper',color:'green',delta:'Unique projects'},
+  ];
+  document.getElementById('kpiGrid').innerHTML = kpis.map(k=>`
+    <div class="kpi-card ${k.color}">
+      <div class="kpi-icon"><i class="ti ${k.icon}"></i></div>
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-delta">${k.delta}</div>
+    </div>`).join('');
+}
+
+// ─────────────────────────────────────────────
+// CHART HELPERS
+// ─────────────────────────────────────────────
+const COLORS = {
+  primary: '#4f6ef7', purple: '#7c3aed', cyan: '#06b6d4',
+  green: '#10b981', amber: '#f59e0b', red: '#ef4444',
+  indigo: '#818cf8', teal: '#2dd4bf', orange: '#fb923c',
+};
+const PALETTE = Object.values(COLORS);
+
+function groupBy(data, key, valKey) {
+  return data.reduce((acc, d) => {
+    const k = d[key]; acc[k] = (acc[k]||0) + d[valKey]; return acc;
+  }, {});
+}
+
+function chartDefaults() {
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
+  const textColor = isDark ? '#94a3b8' : '#64748b';
+  return { gridColor, textColor };
+}
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+// ─────────────────────────────────────────────
+// CHART 1: STACKED BAR (Project)
+// ─────────────────────────────────────────────
+function renderBarChart() {
+  destroyChart('chartBar');
+  const { gridColor, textColor } = chartDefaults();
+  const projects = [...new Set(filteredData.map(d=>d.project))];
+  const amtData = projects.map(p=>filteredData.filter(d=>d.project===p).reduce((s,d)=>s+d.amount,0));
+  const funData = projects.map(p=>filteredData.filter(d=>d.project===p).reduce((s,d)=>s+d.funnel,0));
+  const penData = projects.map(p=>filteredData.filter(d=>d.project===p).reduce((s,d)=>s+d.pending,0));
+  charts.chartBar = new Chart(document.getElementById('chartBar'), {
+    type: 'bar',
+    data: {
+      labels: projects,
+      datasets: [
+        {label:'Amount (Cr.)',data:amtData,backgroundColor:'rgba(79,110,247,0.85)',borderRadius:4,borderSkipped:false},
+        {label:'Funnel',data:funData,backgroundColor:'rgba(124,58,237,0.85)',borderRadius:4,borderSkipped:false},
+        {label:'Pending',data:penData,backgroundColor:'rgba(245,158,11,0.85)',borderRadius:4,borderSkipped:false},
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{stacked:true,grid:{color:gridColor},ticks:{color:textColor,font:{size:11}}},
+        y:{stacked:true,grid:{color:gridColor},ticks:{color:textColor,font:{size:11},callback:v=>'₹'+v.toFixed(2)+'Cr'}},
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+// CHART 2: COLUMN BY LOCATION
+// ─────────────────────────────────────────────
+function renderLocationChart() {
+  destroyChart('chartLocation');
+  const { gridColor, textColor } = chartDefaults();
+  const grp = groupBy(filteredData,'location','amount');
+  const locs = Object.keys(grp).sort();
+  const colors = locs.map((_,i)=>PALETTE[i%PALETTE.length]);
+  charts.chartLocation = new Chart(document.getElementById('chartLocation'), {
+    type: 'bar',
+    data: {
+      labels: locs,
+      datasets: [{
+        label:'Amount (Cr.)',data:locs.map(l=>grp[l]),
+        backgroundColor:colors.map(c=>c+'cc'),borderColor:colors,
+        borderWidth:1.5,borderRadius:6,borderSkipped:false
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:11}}},
+        y:{grid:{color:gridColor},ticks:{color:textColor,callback:v=>'₹'+v.toFixed(2)}}
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+// CHART 3: QUARTER LINE
+// ─────────────────────────────────────────────
+function renderQuarterChart() {
+  destroyChart('chartQuarter');
+  const { gridColor, textColor } = chartDefaults();
+  const qs = ['Q1','Q2','Q3','Q4'];
+  const amtQ = qs.map(q=>filteredData.filter(d=>d.quarter===q).reduce((s,d)=>s+d.amount,0));
+  const funQ = qs.map(q=>filteredData.filter(d=>d.quarter===q).reduce((s,d)=>s+d.funnel,0));
+  charts.chartQuarter = new Chart(document.getElementById('chartQuarter'), {
+    type: 'line',
+    data: {
+      labels: qs,
+      datasets: [
+        {label:'Amount',data:amtQ,borderColor:'#4f6ef7',backgroundColor:'rgba(79,110,247,0.12)',tension:.4,fill:true,pointRadius:5,pointBackgroundColor:'#4f6ef7',borderWidth:2.5,pointBorderColor:'#fff',pointBorderWidth:2},
+        {label:'Funnel',data:funQ,borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.08)',tension:.4,fill:true,pointRadius:5,pointBackgroundColor:'#10b981',borderWidth:2.5,borderDash:[6,3],pointBorderColor:'#fff',pointBorderWidth:2}
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:12}}},
+        y:{grid:{color:gridColor},ticks:{color:textColor,callback:v=>'₹'+v.toFixed(2)}}
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+// CHART 4: SCOPE PIE
+// ─────────────────────────────────────────────
+function renderScopeChart() {
+  destroyChart('chartScope');
+  const grp = groupBy(filteredData,'scope','amount');
+  const scopes = Object.keys(grp);
+  const colors = scopes.map((_,i)=>[COLORS.primary,COLORS.purple,COLORS.cyan,COLORS.green,COLORS.amber][i%5]);
+  charts.chartScope = new Chart(document.getElementById('chartScope'), {
+    type: 'doughnut',
+    data: {
+      labels: scopes,
+      datasets:[{data:scopes.map(s=>grp[s]),backgroundColor:colors,borderWidth:2,borderColor:isDark?'#1a1d27':'#fff',hoverOffset:8}]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false, cutout:'58%',
+      plugins:{
+        legend:{
+          position:'right',
+          labels:{color:isDark?'#94a3b8':'#4a5568',font:{size:11},padding:12,
+            generateLabels:(chart)=>{
+              const d=chart.data;
+              return d.labels.map((l,i)=>({text:l+' ₹'+d.datasets[0].data[i].toFixed(2),fillStyle:d.datasets[0].backgroundColor[i],strokeStyle:'transparent',index:i}));
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+// CHART 5: CUSTOMER HORIZONTAL BAR
+// ─────────────────────────────────────────────
+function renderCustomerChart() {
+  destroyChart('chartCustomer');
+  const { gridColor, textColor } = chartDefaults();
+  const customers = [...new Set(filteredData.map(d=>d.customer))];
+  const amtC = customers.map(c=>filteredData.filter(d=>d.customer===c).reduce((s,d)=>s+d.amount,0));
+  const funC = customers.map(c=>filteredData.filter(d=>d.customer===c).reduce((s,d)=>s+d.funnel,0));
+  const wrap = document.getElementById('customerChartWrap');
+  const h = Math.max(220, customers.length*48+60);
+  wrap.style.height = h+'px';
+  charts.chartCustomer = new Chart(document.getElementById('chartCustomer'), {
+    type: 'bar',
+    data: {
+      labels: customers,
+      datasets: [
+        {label:'Amount',data:amtC,backgroundColor:'rgba(6,182,212,0.8)',borderRadius:4,borderSkipped:false},
+        {label:'Funnel',data:funC,backgroundColor:'rgba(16,185,129,0.8)',borderRadius:4,borderSkipped:false}
+      ]
+    },
+    options: {
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:11},callback:v=>'₹'+v.toFixed(2)}},
+        y:{grid:{color:'transparent'},ticks:{color:textColor,font:{size:12}}}
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+// TABLE
+// ─────────────────────────────────────────────
+function renderTable() {
+  const scope2badge = {Cage:'badge-blue',CAC:'badge-amber',MSE:'badge-green'};
+  document.getElementById('tableBody').innerHTML = filteredData.map(d=>`
+    <tr>
+      <td>${d.sr}</td>
+      <td><b>${d.project}</b></td>
+      <td>${d.location}</td>
+      <td><span class="badge badge-blue">${d.quarter}</span></td>
+      <td>${d.pct}</td>
+      <td><span class="badge ${scope2badge[d.scope]||'badge-blue'}">${d.scope}</span></td>
+      <td>${d.associated||'—'}</td>
+      <td>₹${d.amount.toFixed(3)}</td>
+      <td>₹${d.funnel.toFixed(3)}</td>
+      <td>${d.customer}</td>
+      <td><span class="badge ${d.pending>0?'badge-amber':'badge-green'}">₹${d.pending.toFixed(3)}</span></td>
+    </tr>`).join('');
+}
+
+// ─────────────────────────────────────────────
+// RENDER ALL
+// ─────────────────────────────────────────────
+function renderAllCharts() {
+  renderBarChart();
+  renderLocationChart();
+  renderQuarterChart();
+  renderScopeChart();
+  renderCustomerChart();
+}
+function renderAll() {
+  renderKPIs();
+  renderAllCharts();
+  renderTable();
+}
+
+// ─────────────────────────────────────────────
+// FILE UPLOAD
+// ─────────────────────────────────────────────
+function handleDragOver(e) { e.preventDefault(); document.getElementById('uploadZone').classList.add('drag'); }
+function handleDragLeave() { document.getElementById('uploadZone').classList.remove('drag'); }
+function handleDrop(e) {
+  e.preventDefault(); handleDragLeave();
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+}
+function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (file) processFile(file);
+  e.target.value = '';
+}
+function processFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['xlsx','xls','csv'].includes(ext)) { showToast('❌ Unsupported format. Use .xlsx or .csv'); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = e.target.result;
+      const wb = XLSX.read(data, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+      if (!rows.length) { showToast('⚠️ File appears empty'); return; }
+      const parsed = rows.map((r,i) => ({
+        sr: r['Sr. No.']||r['sr']||i+1,
+        project: String(r['Project']||r['project']||'Unknown').toUpperCase(),
+        location: String(r['Location']||r['location']||'Unknown').toUpperCase(),
+        quarter: String(r['Quarter']||r['quarter']||'Q1'),
+        pct: String(r['Percentage']||r['pct']||'0%'),
+        scope: String(r['Scope']||r['scope']||'Other'),
+        associated: String(r['Associated']||r['associated']||''),
+        amount: parseFloat(r['Amount (Cr.)']||r['amount']||0)||0,
+        amountSeg: parseFloat(r['Amount (Cr.) Seg']||r['amountSeg']||0)||0,
+        funnel: parseFloat(r['Funnel']||r['funnel']||0)||0,
+        remarks: String(r['Remarks']||r['remarks']||''),
+        customer: String(r['Customer']||r['customer']||'Unknown').toUpperCase(),
+        pending: parseFloat(r['Amount Pending']||r['pending']||0)||0,
+      }));
+      allData = parsed;
+      filteredData = [...allData];
+      populateFilters();
+      renderAll();
+      const log = document.getElementById('uploadLog');
+      log.innerHTML = `<span style="color:var(--success)"><i class="ti ti-check"></i> <b>${file.name}</b> uploaded — ${parsed.length} rows imported at ${new Date().toLocaleTimeString()}</span>`;
+      showToast('✅ ' + parsed.length + ' rows imported from ' + file.name);
+      showPage('overview');
+    } catch(err) {
+      showToast('❌ Failed to parse file: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ─────────────────────────────────────────────
+// EXPORT CSV
+// ─────────────────────────────────────────────
+function downloadCSV() {
+  const headers = ['Sr.No.','Project','Location','Quarter','Percentage','Scope','Associated','Amount (Cr.)','Funnel','Customer','Amount Pending'];
+  const rows = filteredData.map(d=>[d.sr,d.project,d.location,d.quarter,d.pct,d.scope,d.associated,d.amount,d.funnel,d.customer,d.pending]);
+  const csv = [headers,...rows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'dashboard_data_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  showToast('📥 CSV downloaded — ' + filteredData.length + ' rows');
+}
+
+// ─────────────────────────────────────────────
+// EXPORT PDF (print)
+// ─────────────────────────────────────────────
+function exportPDF() {
+  showToast('🖨️ Opening print dialog for PDF export...');
+  setTimeout(() => window.print(), 600);
+}
+
+// ─────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────
+function showToast(msg, dur=3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), dur);
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+populateFilters();
+renderAll();
+
+// Mobile menu
+if (window.innerWidth < 900) {
+  document.getElementById('menuBtn').style.display = 'flex';
+}
+</script>
+</body>
+</html>
